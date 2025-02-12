@@ -31,7 +31,7 @@ Eigen::VectorXd forward_propagation(const NeuralNetwork& network, const Eigen::V
     Eigen::VectorXd output = input; // Initialized the output vector
 
     for (const auto& layer : network.layers) {
-        output = sigmoid(layer.weights * input + layer.biases); // input is the initial values for the perceptron
+        output = sigmoid(layer.weights.cwiseProduct(input) + layer.biases); // input is the initial values for the perceptron
     }
 
     return output;
@@ -39,7 +39,7 @@ Eigen::VectorXd forward_propagation(const NeuralNetwork& network, const Eigen::V
 
 
 // Define the backpropagation function
-void backpropagation(NeuralNetwork& network, const Eigen::VectorXd& input, const Eigen::VectorXd& target, double learning_rate) {
+float backpropagation(NeuralNetwork& network, const Eigen::VectorXd& input, const Eigen::VectorXd& target, double learning_rate) {
 
     // Backpropagation
     Eigen::VectorXd output = forward_propagation(network, input);
@@ -50,22 +50,24 @@ void backpropagation(NeuralNetwork& network, const Eigen::VectorXd& input, const
 
     // Update the weights and biases
     for (int i = network.layers.size() - 1; i >= 0; --i) {
-        Eigen::MatrixXd weights_gradient = gradients.transpose() * network.layers[i].weights;
+        Eigen::MatrixXd weights_gradient = gradients.transpose().cwiseProduct(network.layers[i].weights);
         Eigen::VectorXd biases_gradient = gradients.array();
 
         network.layers[i].weights += learning_rate * weights_gradient;
         network.layers[i].biases += learning_rate * biases_gradient;
 
-        gradients = network.layers[i].weights.transpose() * gradients;
+        gradients = network.layers[i].weights.transpose().cwiseProduct(gradients);
     }
 
+    return error.array().square().sum();
 }
 
 // training the network
 void train_neural_network(NeuralNetwork& network, const std::vector<Eigen::VectorXd>& inputs, const std::vector<Eigen::VectorXd>& targets, int epochs, double learning_rate) {
     for (int epoch = 0; epoch < epochs; ++epoch) {
         for (size_t i = 0; i < inputs.size(); ++i) {
-            backpropagation(network, inputs[i], targets[i], learning_rate);
+            float error = backpropagation(network, inputs[i], targets[i], learning_rate);
+            std::cout << "Epoch: " << epoch << ", Loss: " << error << std::endl;
         }
     }
 }
@@ -76,8 +78,8 @@ NeuralNetwork initialize_neural_network(int input_size, std::vector<int> hidden_
 
     // Initialize the first layer
     NeuralNetworkLayer layer;
-    layer.weights = Eigen::MatrixXd::Random(hidden_size, input_size);
-    layer.biases = Eigen::VectorXd::Random(hidden_size[0]);
+    layer.weights = Eigen::MatrixXd::Random(hidden_sizes[0], input_size);
+    layer.biases = Eigen::VectorXd::Random(hidden_sizes[0]);
     network.layers.push_back(layer);
 
     // initializing the hidden layers
@@ -95,3 +97,25 @@ NeuralNetwork initialize_neural_network(int input_size, std::vector<int> hidden_
     return network;
 }
 
+
+// test the network
+int main(){
+
+    // Define the input and target data
+    std::vector<Eigen::VectorXd> inputs = { Eigen::VectorXd::Random(2), Eigen::VectorXd::Random(2) };
+    std::vector<Eigen::VectorXd> targets = { Eigen::VectorXd::Random(1), Eigen::VectorXd::Random(1) };
+
+    // Initialize the neural network
+    NeuralNetwork network = initialize_neural_network(2, { 4, 3 }, 1);
+
+    // Train the neural network
+    train_neural_network(network, inputs, targets, 1000, 0.1);
+
+    // Test the neural network
+    Eigen::VectorXd input = Eigen::VectorXd::Random(2);
+    Eigen::VectorXd output = forward_propagation(network, input);
+    std::cout << "Input: " << input.transpose() << ", Output: " << output.transpose() << std::endl;
+
+    return 0;
+
+}
