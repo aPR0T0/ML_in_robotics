@@ -31,7 +31,12 @@ Eigen::VectorXd forward_propagation(const NeuralNetwork& network, const Eigen::V
     Eigen::VectorXd output = input; // Initialized the output vector
 
     for (const auto& layer : network.layers) {
-        output = sigmoid(layer.weights.cwiseProduct(input) + layer.biases); // input is the initial values for the perceptron
+        // print the dimensions of the layer weights and the output vector
+        std::cout << layer.weights.rows() << " " << layer.weights.cols() << " " << output.rows() << " " << output.cols() << std::endl;
+        // output = sigmoid(layer.weights.transpose() * output + layer.biases); // apply the sigmoid activation function
+        output = sigmoid(layer.weights * output + layer.biases); // input is the initial values for the perceptron
+        // print out the output
+        std::cout << "Output: " << output.transpose() << std::endl;
     }
 
     return output;
@@ -44,19 +49,57 @@ float backpropagation(NeuralNetwork& network, const Eigen::VectorXd& input, cons
     // Backpropagation
     Eigen::VectorXd output = forward_propagation(network, input);
     Eigen::VectorXd error = target - output;
-
+    // print out the error
+    std::cout << "Error: " << error.transpose() << std::endl;
     // Calculate the gradients
     Eigen::VectorXd gradients = error.array() * sigmoid_derivative(output).array();
 
+    // print out the gradients
+    std::cout << "Gradients: " << gradients.transpose() << std::endl;
+
+    // Adjust the weights and biases using gradient descent
+    // Note: This is a simplified version of gradient descent. For a more efficient and accurate implementation, consider using a more advanced optimization algorithm like Adam or RMSprop.
     // Update the weights and biases
-    for (int i = network.layers.size() - 1; i >= 0; --i) {
-        Eigen::MatrixXd weights_gradient = gradients.transpose().cwiseProduct(network.layers[i].weights);
-        Eigen::VectorXd biases_gradient = gradients.array();
+    for (int i = network.layers.size() - 1; i >= 0; i--) {
+        // print shape of gradients and weights
+        std::cout << "Weights before update: " << std::endl << network.layers[i].weights.rows() << " "  << network.layers[i].weights.cols() <<std::endl;
+        // std::cout << "Biases before update: " << std::endl << network.layers[i].biases << std::endl << std::endl;
 
-        network.layers[i].weights += learning_rate * weights_gradient;
+        std::cout << "Gradients before update: " << gradients.transpose().rows() << " " << gradients.transpose().cols()<< std::endl;
+
+        // Calculate the gradients for the current layer
+        // Note: This is a simplified version of backpropagation. For a more efficient and accurate implementation, consider using a more advanced optimization algorithm like Adam or RMSprop
+        Eigen::MatrixXd weights_gradient;
+        Eigen::VectorXd biases_gradient = gradients.transpose();
+        std::cout << "Weights.col(i): " << std::endl << network.layers[i].weights<< std::endl;
+        
+        for (int j = network.layers[i].weights.cols() - 1; j >= 0; j--){
+            // print dimensions of weigts.col(i) and dimensions of gradients
+            std::cout<<gradients<<std::endl;
+            weights_gradient = gradients * network.layers[i].weights.col(j);
+            // print weights_gradient
+            
+            std::cout << "Weights gradient: " << weights_gradient << std::endl;
+            network.layers[i].weights.col(j) += learning_rate * weights_gradient.transpose();
+        }
+        // print weights_gradient
+        std::cout << "Weights gradient: " << weights_gradient.rows() << " " << weights_gradient.cols() << std::endl;
+        std::cout << "Biases gradient: " << biases_gradient.rows() << " " << biases_gradient.cols() << std::endl;
+
+        // Update the weights and biases
+        // Note: This is a simplified version of gradient descent. For a more efficient and accurate implementation, consider using a more advanced optimization algorithm like Adam or RMSprop.
         network.layers[i].biases += learning_rate * biases_gradient;
+        // print weights and biases
+        std::cout << "Weights after update: " << std::endl << network.layers[i].weights << std::endl;
+        std::cout << "Biases after update: " << std::endl << network.layers[i].biases << std::endl << std::endl;
 
-        gradients = network.layers[i].weights.transpose().cwiseProduct(gradients);
+        // Update the gradients for the next layer
+        // Note: This is a simplified version of backpropagation. For a more efficient and accurate implementation, consider using a more advanced optimization algorithm like Adam or RMSprop.
+        gradients= gradients.transpose() * network.layers[i].weights;
+        // gradients = gradients.transpose();
+        // print gradients
+        std::cout << "Gradients after update: " << gradients.transpose() << std::endl;
+        // gradients = network.layers[i].weights.transpose() * gradients;
     }
 
     return error.array().square().sum();
