@@ -1,41 +1,25 @@
-# Compiler and flags
-CXX = g++
-CXXFLAGS = -O2 -std=c++17
+# Specifying which compiler to use
+CC = g++							
 
-# Directories
-SRC_DIR = src
-DATA_DIR = data
-BUILD_DIR = build
+# Here Include specifies which directories can be added in the include path of the main.cpp
+CFLAGS = -std=c++17	 -Iinclude/ 
+# What libraries to be imported here it is opencv 
+LIBS = -I/usr/include/eigen3
+# Similar to how we used to link ad make object files in the terminal
+# the command make build SRC=<FILENAME> should build the executable in the subfolder
+.PHONY: build
+ifeq ($(SRC), $(link), $(OBJ))
+build:
+	$(error "SRC is not set")
+else
+build:
+	@echo "Building..."
+	@mkdir -p output
+	@$(CC) ./examples/$(SRC) ./src/$(link) -o ./output/$(OBJ) $(CFLAGS)
+endif	
 
-# Files
-TARGET = $(BUILD_DIR)/mnist_split
-SOURCES = $(SRC_DIR)/main.cpp
-
-# MNIST Dataset URLs
-MNIST_URL = http://yann.lecun.com/exdb/mnist
-FILES = train-images-idx3-ubyte.gz train-labels-idx1-ubyte.gz \
-        t10k-images-idx3-ubyte.gz t10k-labels-idx1-ubyte.gz
-
-# Default target
-all: download_data $(TARGET)
-
-# Rule to compile the C++ code
-$(TARGET): $(SOURCES)
-	mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $^ -o $@
-
-# Rule to download MNIST data
-download_data:
-	mkdir -p $(DATA_DIR)
-	cd $(DATA_DIR) && for file in $(FILES); do \
-	    if [ ! -f $$file ]; then \
-	        wget $(MNIST_URL)/$$file; \
-	        gunzip -f $$file; \
-	    fi \
-	done
-
-# Clean rule
+# if folder is not set, clean all build files all subfolders
+.PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR) $(DATA_DIR)/*.ubyte
-
-.PHONY: all download_data clean
+	@echo "Cleaning..."
+	@rm -rf $(PROJECT)

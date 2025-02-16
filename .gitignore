@@ -31,5 +31,6 @@
 *.out
 *.app
 
-./src/output
-./.vscode
+./output/
+*/.vscode/
+./dataset/
