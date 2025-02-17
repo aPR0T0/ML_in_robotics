@@ -27,6 +27,20 @@ std::vector<Eigen::VectorXd> forward_propagation(const NeuralNetwork& network, c
     return output;
 }
 
+// create an array of target equivalent of size of the output layer
+
+Eigen::VectorXd change_target_dimesions(const Eigen::VectorXd& labels, int nums) {
+    Eigen::VectorXd one_hot = Eigen::VectorXd::Zero(nums);  // Initialize with zeros
+
+    int index = static_cast<int>(labels[0]);  // Extract integer label
+    if (index >= 0 && index < nums) {
+        one_hot(index) = 1.0;  // Set corresponding index to 1
+    } else {
+        std::cerr << "Error: Label index " << index << " is out of range!" << std::endl;
+    }
+
+    return one_hot;
+}
 
 // Define the backpropagation function
 float backpropagation(NeuralNetwork& network, const Eigen::VectorXd& input, const Eigen::VectorXd& target, double learning_rate) {
@@ -34,9 +48,9 @@ float backpropagation(NeuralNetwork& network, const Eigen::VectorXd& input, cons
     // Backpropagation
     std::vector<Eigen::VectorXd> output = forward_propagation(network, input);
     // print the target
+    Eigen::VectorXd targetted = change_target_dimesions(target, number_of_classes); // num_classes is 10
     // std::cout << "target: " << target.transpose() << std::endl;
-    // std::cout << "output: " << output.back() << std::endl;
-    Eigen::MatrixXd hidden_error = target - output.back();
+    Eigen::MatrixXd hidden_error = targetted - output.back();
     // print out the error
     // std::cout << "hidden_error: " << hidden_error.transpose() << std::endl;
     output.pop_back();
@@ -67,24 +81,51 @@ float backpropagation(NeuralNetwork& network, const Eigen::VectorXd& input, cons
         // std::cout << "hidden Errors: " << hidden_error.transpose() << std::endl;
 
     }
-    // print hidden errors
-    // std::cout << "hidden Errors: " << hidden_errors.transpose() << std::endl;
-    // std::cout << "hidden Errors Squared Sum: " << hidden_errors.array().square().sum() << std::endl;
-    // std::cout << "hidden Errors Squared Sum: " << hidden_errors.squaredNorm() << std::endl;
-    // return the sum of squared errors
-    // return hidden_errors.array().square().sum();
-    // return hidden_errors.squaredNorm();
     return hidden_errors.array().square().sum();
 }
 
+// Mutex for shared resources (if needed)
+std::mutex mutx;
+
+void train_batch(NeuralNetwork& network, const std::vector<Eigen::VectorXd>& inputs, 
+    const std::vector<Eigen::VectorXd>& targets, double learning_rate, size_t start, size_t end) {
+
+    for (int i = start; i < end; ++i) {
+
+        std::cout<< "Training"<< std::endl;
+
+        float error = backpropagation(network, inputs[i], targets[i], learning_rate);
+
+        std::lock_guard<std::mutex> lock(mutx);
+        std::cout << "Thread " << std::this_thread::get_id() << " processed index " << i << ", Loss: " << error << std::endl;
+        // release mutex
+        // lock.unlock();
+    }
+}
+
 // training the network
-void train_neural_network(NeuralNetwork& network, const std::vector<Eigen::VectorXd>& inputs, const std::vector<Eigen::VectorXd>& targets, int epochs, double learning_rate) {
+void train_neural_network(NeuralNetwork& network, const std::vector<Eigen::VectorXd>& inputs, const std::vector<Eigen::VectorXd>& targets, int epochs, double learning_rate, size_t num_samples) {
+    
+    int num_threads = 4;
+    // print current number of threads
+    std::cout << "Currently available Number of threads: " << num_threads << std::endl;
+
+    // size_t num_samples = inputs.size();
+    // size_t num_samples = 80;
+    size_t chunk_size = num_samples / num_threads;
+
     for (int epoch = 0; epoch < epochs; ++epoch) {
-        for (size_t i = 0; i < 10; ++i) {
-            std::cout<<"input: " << i << std::endl;
-            float error = backpropagation(network, inputs[i], targets[i], learning_rate);
-            std::cout << "Epoch: " << epoch << ", Loss: " << error << std::endl;
+        std::vector<std::thread> threads;
+        for (int t = 0; t < num_threads; ++t) {
+            size_t start = t * chunk_size * (epoch + 1);
+            size_t end = start + chunk_size;
+            threads.emplace_back(train_batch, std::ref(network), std::cref(inputs), std::cref(targets), learning_rate, start, end);
         }
+
+        // Join threads
+        for (auto& th : threads) th.join();
+
+        std::cout << "Epoch " << epoch << " completed." << std::endl;
     }
 }
 

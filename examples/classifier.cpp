@@ -110,10 +110,13 @@ vector<Eigen::VectorXd> vector_to_eigen(int chunk_size, optional<vector<uint8_t>
     }
     return eigen_vectors;
 }
+int find_max_index(const Eigen::VectorXd& vec) {
+    return (vec.array() == vec.maxCoeff()).cast<int>().matrix().maxCoeff();
+}
 int main() {
     int numImages, rows, cols, numLabels;
-    vector<vector<uint8_t>> images = readMNISTImages("dataset/mnist-dataset/train-images.idx3-ubyte", numImages, rows, cols);
-    vector<uint8_t> labels = readMNISTLabels("dataset/mnist-dataset/train-labels.idx1-ubyte", numLabels);
+    vector<vector<uint8_t>> images = readMNISTImages("dataset/train-images.idx3-ubyte", numImages, rows, cols);
+    vector<uint8_t> labels = readMNISTLabels("dataset/train-labels.idx1-ubyte", numLabels);
 
     cout << "Loaded " << numImages << " images of size " << rows << "x" << cols << endl;
     cout << "Loaded " << numLabels << " labels" << endl;
@@ -128,9 +131,11 @@ int main() {
     std::cout << "Image size: " << (int)images[0].size() << std::endl;
 
     // Initialize the neural network
-    NeuralNetwork network = initialize_neural_network(images[0].size(), { (int)images[0].size()*8,  (int)images[0].size()/16, (int)images[0].size()/16, (int)images[0].size()/256 }, 1);
+    number_of_classes = 10;
+    NeuralNetwork network = initialize_neural_network(images[0].size(), { (int)images[0].size()*2, (int)images[0].size(), 16 }, 10);
+    size_t num_samples = 8;
     // Train the neural network
-    train_neural_network(network, inputs, targets, 1000, 0.1);
+    train_neural_network(network, inputs, targets, 10, 0.1, num_samples);
 
     // print the network
     for (const auto& layer : network.layers) {
@@ -138,10 +143,18 @@ int main() {
         std::cout << "Biases: " << std::endl << layer.biases << std::endl;
     }
     // Test the neural network
-    Eigen::VectorXd input = Eigen::VectorXd::Random(2);
-    std::vector<Eigen::VectorXd> output = forward_propagation(network, input);
-    std::cout << "Input: " << input.transpose() << ", Output: " << output.back().transpose() << std::endl;
+    vector<vector<uint8_t>> timages = readMNISTImages("dataset/t10k-images.idx3-ubyte", numImages, rows, cols);
+    vector<uint8_t> tlabels = readMNISTLabels("dataset/t10k-labels.idx1-ubyte", numLabels);
+    for (int i = 0; i < 100; i++){
 
+
+        int index = rand() % timages.size();
+        Eigen::VectorXd input = vector_to_eigen(0, std::nullopt, timages)[index];
+        Eigen::VectorXd target = vector_to_eigen(1, tlabels, std::nullopt)[index];
+
+        std::vector<Eigen::VectorXd> output = forward_propagation(network, input);
+        std::cout << "Input: " << input.transpose() << ", Output: " << find_max_index(output.back()) << "Expected: "<< target.transpose()<<  std::endl;
+    }
     return 0;
     
 }
